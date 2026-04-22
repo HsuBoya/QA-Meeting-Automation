@@ -18,5 +18,5 @@ function onOpen() {
  */
 function showInstruction() {
   const ui = SpreadsheetApp.getUi();
-  ui.alert("使用說明", "若點選功能沒反應，請先確認是否已完成 Google 權限授權。\n如有報錯，請聯繫腳本管理員。", ui.ButtonSet.OK);
+  ui.alert("使用說明", "若點選功能沒反應，請先確認是否已完成 Google 權限授權\n如有報錯，請聯繫腳本管理員。", ui.ButtonSet.OK);
 }
