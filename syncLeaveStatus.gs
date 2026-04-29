@@ -2,7 +2,6 @@ const scriptProperties = PropertiesService.getScriptProperties();
 const TRELLO_KEY = scriptProperties.getProperty('TRELLO_KEY');
 const TRELLO_TOKEN = scriptProperties.getProperty('TRELLO_TOKEN');
 const BOARD_ID = scriptProperties.getProperty('BOARD_ID');
-const LIST_ID = scriptProperties.getProperty('LIST_ID');  //只抓【已完成】、【請假】列表
 
 
 function syncLeaveStatus() {
@@ -22,9 +21,20 @@ function syncLeaveStatus() {
     const leavePeople = []; // 使用 const 或 let 皆可，實務上常用 const
 
     // 2. 呼叫 Trello API
-    const url = "https://trello.com" + "/1/lists/" + LIST_ID + "/cards?key=" + TRELLO_KEY + "&token=" + TRELLO_TOKEN;
-    const response = UrlFetchApp.fetch(url);
-    const cards = JSON.parse(response.getContentText());
+    //const url = "https://trello.com" + "/1/lists/" + LIST_ID + "/cards?key=" + TRELLO_KEY + "&token=" + TRELLO_TOKEN;
+    const listIds = scriptProperties.getProperty('LIST_ID').split(',');
+    let cards = [];
+
+    listIds.forEach(id => {
+    const url = "https://api.trello.com/1/lists/" + id + "/cards?key=" + TRELLO_KEY + "&token=" + TRELLO_TOKEN;
+    try {
+    const resp = UrlFetchApp.fetch(url);
+    const listCards = JSON.parse(resp.getContentText());
+    cards = cards.concat(listCards); 
+  } catch(e) {
+    console.log("抓取列表 " + id + " 出錯");
+  }
+});
 
     for (let i = 0; i < cards.length; i++) { // 迴圈計數器建議用 let
       const card = cards[i];
@@ -76,20 +86,23 @@ function syncLeaveStatus() {
         }
       }
 
-      // --- 更新到試算表 ---
-      leaveRange.setValue(uniqueLeavePeople.join("、"));
-    attendeesRange.setValue(updatedAttendees.join("、"));
+      // 處理請假人員：合併「原本格內名單」與「Trello新抓到名單」
+      const existingLeave = leaveRange.getValue();
+      const currentLeaveArray = existingLeave ? existingLeave.split("、") : [];
+      // 使用 Set 確保人名不重複
+      const finalLeavePeople = [...new Set([...currentLeaveArray, ...uniqueLeavePeople])];
+      leaveRange.setValue(finalLeavePeople.join("、"));
+      attendeesRange.setValue(updatedAttendees.join("、"));
+      
+      SpreadsheetApp.getUi().alert("同步成功！今日請假人員：" + uniqueLeavePeople.join(", "));
 
-    // 使用 toast 代替 alert
-    SpreadsheetApp.getActiveSpreadsheet().toast("同步成功！今日請假人員：" + uniqueLeavePeople.join(", "), "系統通知");
+    } else {
+      SpreadsheetApp.getUi().alert("找不到日期為 " + sheet.getName() + " 的請假卡片");
+    }
 
-  } else {
-    // 這裡原本 alert 的位置
-    SpreadsheetApp.getActiveSpreadsheet().toast("找不到日期為 " + sheet.getName() + " 的請假卡片", "注意");
-  } // <--- 檢查這個 else 的結束括號
-
-} catch (e) { // <--- 這裡如果報錯，表示上面少了一個 }
-  console.error("程式執行出錯：" + e.message);
-  SpreadsheetApp.getActiveSpreadsheet().toast("程式執行出錯：" + e.message, "錯誤提示", -1);
+  } catch (e) {
+    SpreadsheetApp.getUi().alert("程式執行出錯：" + e.message);
+  }
 }
-}
+
+
