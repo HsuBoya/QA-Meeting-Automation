@@ -2,10 +2,19 @@ const scriptProperties = PropertiesService.getScriptProperties();
 const TRELLO_KEY = scriptProperties.getProperty('TRELLO_KEY');
 const TRELLO_TOKEN = scriptProperties.getProperty('TRELLO_TOKEN');
 const BOARD_ID = scriptProperties.getProperty('BOARD_ID');
+const EXCEL_ID = scriptProperties.getProperty('EXCEL_ID');
 
 function syncLeaveStatus() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getActiveSheet();
+  const ss = SpreadsheetApp.openById(EXCEL_ID);
+  // 取得今天日期字串
+  const todayName = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd");
+  // 根據日期名稱尋找分頁
+  let sheet = ss.getSheetByName(todayName);
+  
+  // 如果找不到今天的分頁（例如還沒建立），則抓取當前活動分頁（手動時有效）或第一個分頁
+  if (!sheet) {
+    sheet = ss.getActiveSheet() || ss.getSheets()[0];
+  }
 
   try {
     // 1. 初始化日期
@@ -91,4 +100,22 @@ function showSafeAlert(msg) {
   } catch (e) {
     console.log("執行紀錄: " + msg);
   }
+}
+
+function setupTrigger() {
+  const allTriggers = ScriptApp.getProjectTriggers();
+  allTriggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'syncLeaveStatus') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  ScriptApp.newTrigger('syncLeaveStatus')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.THURSDAY)
+    .atHour(7)
+    .create();
+  
+  // 改用 log，不會彈窗打擾
+  console.log("排程已設定完成");
 }
